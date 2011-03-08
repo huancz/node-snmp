@@ -137,18 +137,12 @@ class cSnmpSessionManager {
     ex_check check_;
     ex_timeout timeout_;
     struct ev_loop* loop_;
-    // Abuse  of fd_set.  Stored "fds"  are not  fds, but  indices of  storage_
-    // elements that must be cleared after loop in check_cb_impl finishes.
-    fd_set evictSet_;
-    bool busy_;
 
     cSnmpSessionManager() {
       prepare_.selfPtr_ = this;
       check_.selfPtr_ = this;
       timeout_.selfPtr_ = this;
       loop_ = NULL;
-      FD_ZERO(&evictSet_);
-      busy_ = false;
     }
 
     cSnmpSessionManager(const cSnmpSessionManager&);
@@ -158,6 +152,10 @@ class cSnmpSessionManager {
     void check_cb_impl();
 
   public:
+    ~cSnmpSessionManager() {
+      assert(storage_.empty());
+    }
+
     void addClient(void* aSnmp);
     void removeClient(void* aSnmp);
 
@@ -220,6 +218,9 @@ void cSnmpSessionManager::prepare_cb_impl() {
   for(storage_iterator it = this->storage_.begin();
       it != it_end; ++it)
   {
+    if (!it->snmpHandle_) {
+      continue;
+    }
     int retval = snmp_sess_select_info(it->snmpHandle_, &nfds, &readSet,
         &timeout, &block);
 
@@ -260,26 +261,7 @@ void cSnmpSessionManager::check_cb(
   data->selfPtr_->check_cb_impl();
 }
 
-namespace {
-struct checkCbEvict {
-  private:
-    const cSnmpSessionManager::storage_el* base_;
-    fd_set* evictSet_;
-
-  public:
-    checkCbEvict(const cSnmpSessionManager::storage_el* base, fd_set* aSet)
-      : base_(base), evictSet_(aSet)
-    { }
-
-    bool operator()(const cSnmpSessionManager::storage_el& aElem) {
-      return !FD_ISSET((&aElem - base_), evictSet_);
-    }
-};
-}
-
 void cSnmpSessionManager::check_cb_impl() {
-  this->busy_ = true;
-
   fd_set readSet;
   FD_ZERO(&readSet);
 
@@ -289,39 +271,40 @@ void cSnmpSessionManager::check_cb_impl() {
   }
 
   storage_iterator it_end = storage_.end();
+  storage_iterator it_next;
   for(storage_iterator it = storage_.begin();
-      it != it_end; ++it)
+      it != it_end; it = it_next)
   {
+    it_next = it;
+    ++it_next;
+    if (!it->snmpHandle_) {
+      storage_.erase(it);
+      continue;
+    }
+
+    if (!it->snmpHandle_) {
+      continue;
+    }
+
     int revents = ev_clear_pending(loop_, &it->io_watcher_);
     if ((revents & READ) == READ) {
       // fprintf(stderr, "read on fd %d\n", it->io_watcher_.fd);
       FD_SET(it->io_watcher_.fd, &readSet);
-    }
-    ev_io_stop(this->loop_, &it->io_watcher_);
-  }
-  for(storage_iterator it = storage_.begin();
-      it != it_end; ++it)
-  {
-    if (FD_ISSET(it->io_watcher_.fd, &readSet)) {
       snmp_sess_read(it->snmpHandle_, &readSet);
     } else {
       snmp_sess_timeout(it->snmpHandle_);
     }
+    ev_io_stop(this->loop_, &it->io_watcher_);
+
+    if (!it->snmpHandle_) {
+      storage_.erase(it);
+      continue;
+    }
   }
 
-  this->busy_ = false;
-
-  {
-    checkCbEvict kEvict(&(this->storage_[0]), &this->evictSet_);
-    storage_iterator pos = std::partition(
-        this->storage_.begin(), this->storage_.end(), kEvict);
-    this->storage_.erase(pos, this->storage_.end());
-    FD_ZERO(&this->evictSet_);
-
-    if (storage_.empty()) {
-      ev_prepare_stop(this->loop_, &this->prepare_.watcher_);
-      ev_check_stop(this->loop_, &this->check_.watcher_);
-    }
+  if (storage_.empty()) {
+    ev_prepare_stop(this->loop_, &this->prepare_.watcher_);
+    ev_check_stop(this->loop_, &this->check_.watcher_);
   }
 }
 
@@ -333,24 +316,22 @@ void cSnmpSessionManager::addClient(void* aSnmp) {
     ev_prepare_start(this->loop_, &this->prepare_.watcher_);
     ev_check_start(this->loop_, &this->check_.watcher_);
   }
-  // this means  realloc -> death  when called from within  check_cb_impl inner
-  // loop. We need javascript wrapper to defer the call using process.nextTick
-  storage_.push_back((storage_el){ aSnmp });
+  storage_.push_front((storage_el){ aSnmp });
 }
 
 namespace {
-  struct handleFind {
-    private:
-      void* handle_;
+struct handleFind {
+  private:
+    void* handle_;
 
-    public:
-      handleFind(void* aHandle)
-        : handle_(aHandle)
-      { }
-      bool operator()(cSnmpSessionManager::storage_el& aElement) {
-        return aElement.snmpHandle_ == handle_;
-      }
-  };
+  public:
+    handleFind(void* aHandle)
+      : handle_(aHandle)
+    { }
+    bool operator()(cSnmpSessionManager::storage_el& aElement) {
+      return aElement.snmpHandle_ == handle_;
+    }
+};
 }
 
 void cSnmpSessionManager::removeClient(void* aSnmp) {
@@ -358,17 +339,8 @@ void cSnmpSessionManager::removeClient(void* aSnmp) {
       handleFind(aSnmp));
   assert(it != storage_.end());
 
-  if (this->busy_) {
-    FD_SET(it - storage_.begin(), &this->evictSet_);
-    return;
-  }
-
-  storage_.erase(it);
-
-  if (storage_.empty()) {
-    ev_prepare_stop(this->loop_, &this->prepare_.watcher_);
-    ev_check_stop(this->loop_, &this->check_.watcher_);
-  }
+  // only check_cb_impl is allowed to remove items from storage_
+  it->snmpHandle_ = NULL;
 }
 
 // }}}
