@@ -245,7 +245,9 @@ void cSnmpSessionManager::prepare_cb_impl() {
     ev_tstamp next_timeout = timeout.tv_usec;
     next_timeout /= 1000000;
     next_timeout += timeout.tv_sec;
+#ifdef ENABLE_DEBUG_PRINTS
     // fprintf(stderr, "block until %lf\n", next_timeout);
+#endif
     this->timeout_.active_ = true;
     ev_timer_init(&this->timeout_.watcher_, &cSnmpSessionManager::timeout_cb,
         next_timeout, 0.0);
@@ -288,7 +290,9 @@ void cSnmpSessionManager::check_cb_impl() {
 
     int revents = ev_clear_pending(loop_, &it->io_watcher_);
     if ((revents & READ) == READ) {
+#ifdef ENABLE_DEBUG_PRINTS
       // fprintf(stderr, "read on fd %d\n", it->io_watcher_.fd);
+#endif
       FD_SET(it->io_watcher_.fd, &readSet);
       snmp_sess_read(it->snmpHandle_, &readSet);
     } else {
@@ -356,7 +360,6 @@ class cSnmpValue : public node::ObjectWrap {
 
     u_char type_;
     std::vector<unsigned char> data_;
-    std::size_t length_;
 
     cSnmpValue() {}
 
@@ -477,8 +480,8 @@ Handle<Value> cSnmpValue::GetData(const Arguments& args) {
     case ASN_OBJECT_ID:        // when not translated by mib, use .X.Y.Z....
                                // applied to val->objid
       {
-        assert((inst->length_ % sizeof(oid)) == 0);
-        size_t end = inst->length_ / sizeof(oid);
+        assert((inst->data_.size() % sizeof(oid)) == 0);
+        size_t end = inst->data_.size() / sizeof(oid);
         Local<Array> result = v8::Array::New(end);
         for (size_t i = 0; i < end; ++i) {
           double num = data.objid[i];
@@ -497,18 +500,18 @@ Handle<Value> cSnmpValue::GetData(const Arguments& args) {
         // many thanks to
         // http://sambro.is-super-awesome.com/2011/03/03/creating-a-proper-buffer-in-a-node-c-addon/
         // for a guide how to return Buffer from a function.
-        node::Buffer* slowBuffer = node::Buffer::New(inst->length_);
+        node::Buffer* slowBuffer = node::Buffer::New(inst->data_.size());
         memcpy(
             node::Buffer::Data(slowBuffer),
             inst->data_.data(),
-            inst->length_);
+            inst->data_.size());
         v8::Local<v8::Object> globalObj = v8::Context::GetCurrent()->Global();
         v8::Local<v8::Function> bufferConstructor =
           v8::Local<v8::Function>::Cast(
               globalObj->Get(v8::String::New("Buffer")));
         v8::Handle<v8::Value> constructorArgs[3] = {
           slowBuffer->handle_,
-          v8::Integer::New(inst->length_),
+          v8::Integer::New(inst->data_.size()),
           v8::Integer::New(0)
         };
         v8::Local<v8::Object> result =
@@ -536,7 +539,6 @@ Handle<Value> cSnmpValue::New(u_char type, void* data, std::size_t length) {
   v->type_ = type;
   v->data_.resize(length);
   memcpy(&v->data_[0], data, length);
-  v->length_ = length;
 
   Local<Object> b = constructorTemplate_->GetFunction()->NewInstance(0, NULL);
 
@@ -748,7 +750,9 @@ class cSnmpSession : public node::ObjectWrap {
     cSnmpSession() {
       selfData_.selfPtr_ = this;
       manager_ = cSnmpSessionManager::default_inst();
+#ifdef ENABLE_DEBUG_PRINTS
       fprintf(stdout, "cSnmpSession()\n");
+#endif
     };
 
   private: // methods
@@ -810,9 +814,13 @@ class cSnmpSession : public node::ObjectWrap {
 
   public:
     ~cSnmpSession() {
+#ifdef ENABLE_DEBUG_PRINTS
       fprintf(stdout, "~cSnmpSession()\n");
+#endif
       if (sessionHandle_) {
+#ifdef ENABLE_DEBUG_PRINTS
         fprintf(stdout, "close handle %p\n", sessionHandle_);
+#endif
         snmp_sess_close(sessionHandle_);
         sessionHandle_ = NULL;
       }
@@ -998,7 +1006,9 @@ cSnmpSession* cSnmpSession::New(const std::string& hostName,
   kSession.callback_magic = &kResult->selfData_;
 
   kResult->sessionHandle_ = snmp_sess_open(&kSession);
+#ifdef ENABLE_DEBUG_PRINTS
   fprintf(stderr, "new session handle %p\n", kResult->sessionHandle_);
+#endif
   kResult->manager_ = cSnmpSessionManager::default_inst();
   free(kSession.community);
   free(kSession.peername);
@@ -1049,7 +1059,9 @@ Handle<Value> cSnmpSession::New(const Arguments& args) {
 void cSnmpSession::Destroy(Persistent<Value> v, void* param) {
   assert(v->IsObject());
   cSnmpSession* s = ObjectWrap::Unwrap<cSnmpSession>(v->ToObject());
+#ifdef ENABLE_DEBUG_PRINTS
   // fprintf(stderr, "destroy persistent for %p\n", s);
+#endif
   delete s;
   v.Dispose();
 }
