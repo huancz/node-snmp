@@ -167,7 +167,7 @@ var conn = exports.cSnmpConnection = function cSnmpConnection(aHost, aCredential
   this.worker_ = new (binding.cSnmpSession)(aHost, aCredentials);
 }
 
-conn.prototype.get = function(aOid, aCalback) {
+conn.prototype.get = function(aOid, aCallback) {
   if (aCallback) {
     return this.worker_.get(aOid, aCallback, false);
   } else {
