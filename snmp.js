@@ -77,6 +77,8 @@ binding.cSnmpValue.prototype.asArray = function() {
 }
 // }}}
 
+binding.cSnmpValue.prototype.toString = binding.cSnmpValue.prototype.asString;
+
 // function oid_compare_base(aLeft, aRight) {{{
 function oid_compare_base(aLeft, aRight) {
   var left = interpret_oid(aLeft);
@@ -168,8 +170,9 @@ var conn = exports.cSnmpConnection = function cSnmpConnection(aHost, aCredential
 }
 
 conn.prototype.get = function(aOid, aCallback) {
+  var oid = interpret_oid(aOid);
   if (aCallback) {
-    return this.worker_.get(aOid, aCallback, false);
+    return this.worker_.get(oid, aCallback, false);
   } else {
     var result_err;
     var result_val;
@@ -179,7 +182,7 @@ conn.prototype.get = function(aOid, aCallback) {
       result_val = aData;
     }
 
-    this.worker_.getNext(aOid, callback, true);
+    this.worker_.get(oid, callback, true);
 
     if (result_err) {
       this.lastError = new cSnmpError(result_err);
