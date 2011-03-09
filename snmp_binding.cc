@@ -766,7 +766,8 @@ class cSnmpSession : public node::ObjectWrap {
 
     void snmp_fail_cb(
         struct snmp_pdu* pdu,
-        const req_data& magic
+        const req_data& magic,
+        const char* reason
         );
 
     int snmp_cb_proxy(
@@ -897,22 +898,24 @@ void cSnmpSession::snmp_success_cb(
 // void cSnmpSession::snmp_fail_cb(...) {{{
 void cSnmpSession::snmp_fail_cb(
         struct snmp_pdu* pdu,
-        const req_data& magic)
+        const req_data& magic,
+        const char* reason
+        )
 {
   HandleScope kScope;
 
   Handle<Value> args[2];
-  args[0] = v8::Boolean::New(true);
+  args[0] = v8::String::NewSymbol(reason, strlen(reason));
   args[1] = v8::Null();
 
   {
-    TryCatch try_catch;
+    // TryCatch try_catch;
 
     magic.callback_->Call(v8::Context::GetCurrent()->Global(), 2, args);
 
-    if (try_catch.HasCaught()) {
-      node::FatalException(try_catch);
-    }
+    // if (try_catch.HasCaught()) {
+    //   node::FatalException(try_catch);
+    // }
   }
 }
 // }}}
@@ -929,7 +932,7 @@ int cSnmpSession::snmp_cb_proxy(
     if (it->pdu_->reqid == reqid) {
       // in  some more  extreme  situations, *this  can  be deallocated  inside
       // callback (by forcing GC cycle). Everything we want to do with instance
-      // must be done before trying callback
+      // must be done before trying callback.
       req_data kReq = *it;
 
       queue_.erase(it);
@@ -937,11 +940,31 @@ int cSnmpSession::snmp_cb_proxy(
         manager_->removeClient(sessionHandle_);
       }
 
-      if (operation != NETSNMP_CALLBACK_OP_RECEIVED_MESSAGE // timeout
-          || pdu->errstat != SNMP_ERR_NOERROR               // other error
-          )
-      {
-        snmp_fail_cb(pdu, kReq);
+      if (operation != NETSNMP_CALLBACK_OP_RECEIVED_MESSAGE) {
+        const char* msg;
+        switch (operation) {
+          case NETSNMP_CALLBACK_OP_TIMED_OUT:
+            msg = "timeout";
+            break;
+          case NETSNMP_CALLBACK_OP_SEND_FAILED:
+            msg = "send failed";
+            break;
+          case NETSNMP_CALLBACK_OP_CONNECT:
+            msg = "connect failed";
+            break;
+          case NETSNMP_CALLBACK_OP_DISCONNECT:
+            msg = "peer has disconnected";
+            break;
+          default:
+            msg = "unknown snmp error";
+        }
+        snmp_fail_cb(pdu, kReq, msg);
+        kReq.callback_.Dispose();
+        return 1;
+      }
+      if (pdu->errstat != SNMP_ERR_NOERROR) {
+        const char* msg = snmp_errstring(pdu->errstat);
+        snmp_fail_cb(pdu, kReq, msg);
         kReq.callback_.Dispose();
         return 1;
       }
@@ -956,7 +979,8 @@ int cSnmpSession::snmp_cb_proxy(
         case REQ_BULK:
         default:
           assert(false && "internal error: inconsistent req_data record");
-          snmp_fail_cb(pdu, kReq);
+          snmp_fail_cb(pdu, kReq,
+              "internal error: inconsistent req_data record");
           break;
       }
       kReq.callback_.Dispose();

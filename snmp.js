@@ -136,6 +136,33 @@ exports.parse_oid = binding.parse_oid;
 
 
 
+var ERR_OTHER = 0;
+var ERR_EOF   = 1;
+var ERR_CYCLE = 2;
+
+var cSnmpError = function(aMessage, aCode) {
+  this.message_ = aMessage;
+  this.code_ = aCode || ERR_OTHER;
+}
+
+cSnmpError.prototype.toString = function() {
+  return this.message_.toString();
+}
+
+cSnmpError.prototype.getMessage = function() {
+  return this.message_;
+}
+
+cSnmpError.prototype.isEof = function() {
+  return this.code_ == ERR_EOF;
+}
+
+
+
+
+
+
+
 var conn = exports.cSnmpConnection = function cSnmpConnection(aHost, aCredentials) {
   this.worker_ = new (binding.cSnmpSession)(aHost, aCredentials);
 }
@@ -155,9 +182,12 @@ conn.prototype.get = function(aOid, aCalback) {
     this.worker_.getNext(aOid, callback, true);
 
     if (result_err) {
+      this.lastError = new cSnmpError(result_err);
+      this.lastResult = null;
       return false;
     } else {
       this.lastResult = result_val;
+      this.lastError = null;
       return true;
     }
   }
@@ -181,7 +211,8 @@ conn.prototype.get = function(aOid, aCalback) {
 // conn.prototype.getNext = function(aOid, aCallback) {{{
 conn.prototype.getNext = function(aOid, aCallback) {
   if (aCallback) {
-    assert.ok(aCallback instanceof Function, "callback must be a function");
+    assert.ok(aCallback instanceof Function,
+        "callback must be a function");
   }
 
   var oid = interpret_oid(aOid);
@@ -201,12 +232,12 @@ conn.prototype.getNext = function(aOid, aCallback) {
     if (aError) {
       sync_err = true;
       that.lastResult = null;
-      that.lastError = aError;
+      that.lastError = new cSnmpError(aError);
       return;
     }
     if (!verifyNextResult(oid, aData[0].oid)) {
       that.lastResult = null;
-      that.lastError = "broken peer implementation";
+      that.lastError = new cSnmpError("broken peer implementation", ERR_CYCLE, null);
       return;
     }
     that.lastResult = aData;
@@ -215,13 +246,12 @@ conn.prototype.getNext = function(aOid, aCallback) {
 
   function async_callback(aError, aData) {
     if (aError) {
-      aCallback(aError, null);
+      aCallback(new cSnmpError(aError), null);
       return;
     }
     // XXX: this won't work for multi-oid queries
     if (!verifyNextResult(oid, aData[0].oid)) {
-      console.log("broken implementation: ", oid, interpret_oid(aData[0].oid));
-      aCallback("broken peer implementation", null);
+      aCallback(new cSnmpError("broken peer implementation", ERR_CYCLE), null);
       console.log([oid, aData[0].oid]);
       return;
     }
@@ -249,25 +279,24 @@ conn.prototype.getNextSubtree = function(aOid, aBase, aCallback) {
 
   function async_callback(aError, aData) {
     if (aError) {
-      aCallback(aError, aData);
+      aCallback(new cSnmpError(aError), aData);
       return;
     }
     if (oid_compare_base(aData[0].oid, base) != 0) {
-      aCallback("end of subtree", null);
+      aCallback(new cSnmpError("end of subtree", ERR_EOF), null);
     } else {
-      aCallback(aError, aData);
+      aCallback(null, aData);
     }
   }
 
   if (aCallback) {
     return this.getNext(aOid, async_callback);
   } else {
-    this.getNext(base);
-    if (this.lastError) {
+    if (!this.getNext(base)) {
       return false;
     }
     if (oid_compare_base(this.lastResult[0].oid, base) != 0) {
-      this.lastError = "end of subtree";
+      this.lastError = new cSnmpError("end of subtree", ERR_EOF);
       return false;
     }
     return true;
@@ -290,7 +319,11 @@ conn.prototype.getCompleteSubtree = function(aOid, aCallback) {
 
   function get_subtree_callback(aError, aData) {
     if (aError) {
-      aCallback(results);
+      if (aError.isEof()) {
+        aCallback(false, results);
+      } else {
+        aCallback(aError);
+      }
     } else {
       results.push(aData[0]);
       that.getNextSubtree(aData[0].oid, aOid, get_subtree_callback);
