@@ -547,6 +547,12 @@ Handle<Value> cSnmpValue::New(u_char type, void* data, std::size_t length) {
 }
 // }}}
 
+// stolen and modified from node.h
+#define SNMP_DEFINE_HIDDEN_CONSTANT(target, constant)                     \
+  (target)->Set(v8::String::NewSymbol(#constant),                         \
+                v8::Integer::New(constant),                               \
+                static_cast<v8::PropertyAttribute>(v8::ReadOnly|v8::DontDelete|v8::DontEnum))
+
 // void cSnmpValue::Initialize(Handle<Object> target) {{{
 void cSnmpValue::Initialize(Handle<Object> target) {
   js::HandleScope kScope;
@@ -565,20 +571,20 @@ void cSnmpValue::Initialize(Handle<Object> target) {
       constructorTemplate_->GetFunction());
 
   // support x == cSnmpValue.VT_NUMBER
-  NODE_DEFINE_CONSTANT(t, VT_NUMBER);
-  NODE_DEFINE_CONSTANT(t, VT_TEXT);
-  NODE_DEFINE_CONSTANT(t, VT_OID);
-  NODE_DEFINE_CONSTANT(t, VT_RAW);
-  NODE_DEFINE_CONSTANT(t, VT_NULL);
+  SNMP_DEFINE_HIDDEN_CONSTANT(t, VT_NUMBER);
+  SNMP_DEFINE_HIDDEN_CONSTANT(t, VT_TEXT);
+  SNMP_DEFINE_HIDDEN_CONSTANT(t, VT_OID);
+  SNMP_DEFINE_HIDDEN_CONSTANT(t, VT_RAW);
+  SNMP_DEFINE_HIDDEN_CONSTANT(t, VT_NULL);
 
   // support
   // (v is of type cSnmpValue)
   // v.VT_NUMBER
-  NODE_DEFINE_CONSTANT(t->InstanceTemplate(), VT_NUMBER);
-  NODE_DEFINE_CONSTANT(t->InstanceTemplate(), VT_TEXT);
-  NODE_DEFINE_CONSTANT(t->InstanceTemplate(), VT_OID);
-  NODE_DEFINE_CONSTANT(t->InstanceTemplate(), VT_RAW);
-  NODE_DEFINE_CONSTANT(t->InstanceTemplate(), VT_NULL);
+  SNMP_DEFINE_HIDDEN_CONSTANT(t->InstanceTemplate(), VT_NUMBER);
+  SNMP_DEFINE_HIDDEN_CONSTANT(t->InstanceTemplate(), VT_TEXT);
+  SNMP_DEFINE_HIDDEN_CONSTANT(t->InstanceTemplate(), VT_OID);
+  SNMP_DEFINE_HIDDEN_CONSTANT(t->InstanceTemplate(), VT_RAW);
+  SNMP_DEFINE_HIDDEN_CONSTANT(t->InstanceTemplate(), VT_NULL);
 }
 // }}}
 
