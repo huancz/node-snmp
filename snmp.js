@@ -61,10 +61,11 @@ binding.cSnmpValue.prototype.asArray = function() {
   var v = this.GetData();
 
   if (v instanceof Buffer) {
-    // XXX: Buffer is close enough to Array to not worry about something more
-    // elaborate - clients expecting array (IP address, MAC, ...) should
-    // query GetData anyway.
-    return v;
+    var res = [];
+    for (var i = 0; i < v.length; ++i) {
+      res.push(v[i]);
+    }
+    return res;
   } else if (v instanceof Number) {
     return [ v ];
   } else if (v instanceof Array) {
