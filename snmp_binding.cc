@@ -99,8 +99,6 @@ using namespace v8;
 
 #endif // MODULE_EXPORTS_DOC
 
-#define LOG
-
 // ==== cSnmpSessionManager {{{
 
 class cSnmpSessionManager {
