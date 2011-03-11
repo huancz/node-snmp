@@ -134,20 +134,24 @@ class cSnmpSessionManager {
     ex_prepare prepare_;
     ex_check check_;
     ex_timeout timeout_;
+#if EV_MULTIPLICITY
     struct ev_loop* loop_;
+#endif
 
     cSnmpSessionManager() {
       prepare_.selfPtr_ = this;
       check_.selfPtr_ = this;
       timeout_.selfPtr_ = this;
+#if EV_MULTIPLICITY
       loop_ = NULL;
+#endif
     }
 
     cSnmpSessionManager(const cSnmpSessionManager&);
     cSnmpSessionManager& operator==(const cSnmpSessionManager&);
 
-    void prepare_cb_impl();
-    void check_cb_impl();
+    void prepare_cb_impl(EV_P);
+    void check_cb_impl(EV_P);
 
   public:
     ~cSnmpSessionManager() {
@@ -157,14 +161,14 @@ class cSnmpSessionManager {
     void addClient(void* aSnmp);
     void removeClient(void* aSnmp);
 
-    static void prepare_cb(struct ev_loop* loop, ev_prepare* w, int revents);
-    static void check_cb(struct ev_loop* loop, ev_check* w, int revents);
-    static void timeout_cb(struct ev_loop* loop, ev_timer* w, int revents);
+    static void prepare_cb(EV_P_ ev_prepare* w, int revents);
+    static void check_cb(EV_P_ ev_check* w, int revents);
+    static void timeout_cb(EV_P_ ev_timer* w, int revents);
 
     static cSnmpSessionManager* default_inst();
 
     // call with ev_loop_new result
-    static cSnmpSessionManager* create(struct ev_loop*);
+    static cSnmpSessionManager* create(EV_P);
 };
 
 cSnmpSessionManager* cSnmpSessionManager::defaultInst_ = NULL;
@@ -172,32 +176,36 @@ cSnmpSessionManager* cSnmpSessionManager::defaultInst_ = NULL;
 cSnmpSessionManager* cSnmpSessionManager::default_inst() {
   if (!defaultInst_) {
     defaultInst_ = new cSnmpSessionManager();
+#if EV_MULTIPLICITY
     defaultInst_->loop_ = ev_default_loop(0); // EV_DEFAULT;
+#endif
   }
   return defaultInst_;
 }
 
-cSnmpSessionManager* cSnmpSessionManager::create(struct ev_loop* aLoop) {
+cSnmpSessionManager* cSnmpSessionManager::create(EV_P) {
   cSnmpSessionManager* result = new cSnmpSessionManager();
-  result->loop_ = aLoop;
+#if EV_MULTIPLICITY
+  result->loop_ = loop;
+#endif
   return result;
 }
 
 void cSnmpSessionManager::timeout_cb(
-    struct ev_loop* loop, ev_timer* w, int revents)
+    EV_P_  ev_timer* w, int revents)
 {
   assert(false && "timeout callback shouldn't have been called directly!");
 }
 
 void cSnmpSessionManager::prepare_cb(
-    struct ev_loop* loop, ev_prepare* w, int revents)
+    EV_P_  ev_prepare* w, int revents)
 {
   ex_prepare* data = reinterpret_cast<ex_prepare*>(w);
   assert(!data->selfPtr_->storage_.empty());
-  data->selfPtr_->prepare_cb_impl();
+  data->selfPtr_->prepare_cb_impl(EV_A);
 }
 
-void cSnmpSessionManager::prepare_cb_impl() {
+void cSnmpSessionManager::prepare_cb_impl(EV_P) {
   assert(!this->storage_.empty());
 
 #ifndef NDEBUG
@@ -235,7 +243,7 @@ void cSnmpSessionManager::prepare_cb_impl() {
 #endif
 
     ev_io_set(&it->io_watcher_, nfds - 1, EV_READ);
-    ev_io_start(this->loop_, &it->io_watcher_);
+    ev_io_start(EV_A_   &it->io_watcher_);
 
     nfds = 0;
   }
@@ -249,24 +257,24 @@ void cSnmpSessionManager::prepare_cb_impl() {
     this->timeout_.active_ = true;
     ev_timer_init(&this->timeout_.watcher_, &cSnmpSessionManager::timeout_cb,
         next_timeout, 0.0);
-    ev_timer_start(this->loop_, &this->timeout_.watcher_);
+    ev_timer_start(EV_A_   &this->timeout_.watcher_);
   }
 }
 
 void cSnmpSessionManager::check_cb(
-    struct ev_loop* loop, ev_check* w, int revents)
+    EV_P_   ev_check* w, int revents)
 {
   ex_check* data = reinterpret_cast<ex_check*>(w);
   assert(!data->selfPtr_->storage_.empty());
-  data->selfPtr_->check_cb_impl();
+  data->selfPtr_->check_cb_impl(EV_A);
 }
 
-void cSnmpSessionManager::check_cb_impl() {
+void cSnmpSessionManager::check_cb_impl(EV_P) {
   fd_set readSet;
   FD_ZERO(&readSet);
 
   if (this->timeout_.active_) {
-    ev_timer_stop(this->loop_, &this->timeout_.watcher_);
+    ev_timer_stop(EV_A_   &this->timeout_.watcher_);
     this->timeout_.active_ = false;
   }
 
@@ -286,7 +294,7 @@ void cSnmpSessionManager::check_cb_impl() {
       continue;
     }
 
-    int revents = ev_clear_pending(loop_, &it->io_watcher_);
+    int revents = ev_clear_pending(EV_A_ &it->io_watcher_);
     if ((revents & READ) == READ) {
 #ifdef ENABLE_DEBUG_PRINTS
       // fprintf(stderr, "read on fd %d\n", it->io_watcher_.fd);
@@ -296,7 +304,7 @@ void cSnmpSessionManager::check_cb_impl() {
     } else {
       snmp_sess_timeout(it->snmpHandle_);
     }
-    ev_io_stop(this->loop_, &it->io_watcher_);
+    ev_io_stop(EV_A_   &it->io_watcher_);
 
     if (!it->snmpHandle_) {
       storage_.erase(it);
@@ -305,8 +313,8 @@ void cSnmpSessionManager::check_cb_impl() {
   }
 
   if (storage_.empty()) {
-    ev_prepare_stop(this->loop_, &this->prepare_.watcher_);
-    ev_check_stop(this->loop_, &this->check_.watcher_);
+    ev_prepare_stop(EV_A_   &this->prepare_.watcher_);
+    ev_check_stop(EV_A_   &this->check_.watcher_);
   }
 }
 
@@ -315,8 +323,13 @@ void cSnmpSessionManager::addClient(void* aSnmp) {
     ev_prepare_init(&this->prepare_.watcher_, cSnmpSessionManager::prepare_cb);
     ev_check_init(&this->check_.watcher_, cSnmpSessionManager::check_cb);
 
+#if EV_MULTIPLICITY
     ev_prepare_start(this->loop_, &this->prepare_.watcher_);
     ev_check_start(this->loop_, &this->check_.watcher_);
+#else
+    ev_prepare_start(&this->prepare_.watcher_);
+    ev_check_start(&this->check_.watcher_);
+#endif
   }
   storage_.push_front((storage_el){ aSnmp });
 }
@@ -1193,6 +1206,7 @@ Handle<Value> cSnmpSession::PerformRequest(
   }
 
   if (args[2]->BooleanValue()) {
+#if EV_MULTIPLICITY
     struct ev_loop* our_loop = ev_loop_new(0);
     cSnmpSessionManager* manager = cSnmpSessionManager::create(our_loop);
     cSnmpSession* cloned_sess = inst->Clone(manager);
@@ -1205,6 +1219,12 @@ Handle<Value> cSnmpSession::PerformRequest(
     delete cloned_sess;
     delete manager;
     ev_loop_destroy(our_loop);
+#else
+    return kScope.Close(
+        v8::ThrowException(
+          NODE_PSYMBOL("synchronous interface is unavailable due to"
+            " binding module configuration")));
+#endif
   } else {
     inst->PerformRequestImpl(aType, pdu,
         Persistent<Function>(Function::Cast(*args[1])));
