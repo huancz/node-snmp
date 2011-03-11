@@ -45,37 +45,12 @@ namespace js = v8;
 using namespace v8;
 
 #if 1 && MODULE_EXPORTS_DOC
- exports.cSnmpConnection = function(aHostAddr, aCredentials);
- cSnmpConnection.getNext = function([aOID]) { ...; return true|false; }
- // unused, except from getNext wrapper, muzeme zrusit bez nahrady
- cSnmpConnection.getSafe = { if (!getNext.apply(args)) { js_throw("..."); } }
-
- cSnmpConnection.lastOid = cSnmpValue (type == OID);
- cSnmpConnection.lastValue = cSnmpValue (type == ANY);
-
- cSnmpValue = native_class;
- // v puvodni implementaci je to exports.cConnection.tSnmpValueType.Xxx,
- // ale nikde v kodu se to nepouziva, pro V8 muzeme pouzit co bude nejlepsi.
- cSnmpValue.prototype.pType = { ... } // unused in user code
- cSnmpValue.prototype.pValue = { ... } // unused in user code
- cSnmpValue.prototype.asString = { /* js wrapper for pType/pValue */ }
- cSnmpValue.prototype.asArray = { /* -||- */ }
-
- // upravy pro V8/async:
- getSafe zrusit (=neimplementovat)
- getNext se nebude rozhodovat mezi first/next podle poctu argumentu, ale podle
-   toho jestli je prvni argument undefined. Druhy argument bude callback, pokud
-   bude definovany  tak se pouzije  asynchronni verze s  default_inst manageru,
-   pokud  definovany nebude,  pouzije se  zvlast vytvoreny  manager s  vlastnim
-   loopem.
-
-
 
   // net-snmp "single session" (threadsafe) interface information
   // ============================================================
   - session defines peer, tcp/udp, timeouts and credentials to use
   - session has at most one socket, and when querying select_info, only reports
-    one timeout (least of all timeouts)
+    one timeout (least of all timeouts of all outstanding requests)
   - PDU -  one request,  asociated with  session (sessions  keeps copy,  we can
     deallocate the PDU after snmp_sess_[async]_send)
   - Multiple  PDUs can  be queued  at same  time, we  don''t need  to wait  for
