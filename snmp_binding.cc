@@ -27,6 +27,7 @@ oid* snmp_parse_oid(const char * argv,
 #include <sys/time.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdint.h>
 
 #include <sstream>
 #include <vector>
@@ -446,7 +447,6 @@ Handle<Value> cSnmpValue::GetData(const Arguments& args) {
 #ifdef NETSNMP_WITH_OPAQUE_SPECIAL_TYPES
     case ASN_OPAQUE_I64:       // custom 32bit-compatible printer for "%lld"
                                // (int64.c:printI64) on val.counter->high,low
-#warning "TODO: 32-bit incompatible code"
       {
         uint64_t buf;
         buf = data.counter64->high;
