@@ -13,13 +13,13 @@ ADD_LIBRARY(snmp_binding MODULE
 	snmp_binding.cc
 	)
 
-IF(NOT CONF_SYNC)
+IF(NOT DEFINED CONF_SYNC)
 	SET(CONF_SYNC false
 		CACHE BOOL "build synchronous interface (requires custom node.js)" FORCE
     )
 ENDIF()
 
-IF(NOT NODE_ROOT)
+IF(NOT DEFINED NODE_ROOT)
 	SET(NODE_ROOT "/usr/local"
 		CACHE STRING "where to look for node.js include files" FORCE)
 ENDIF()
