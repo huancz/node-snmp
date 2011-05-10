@@ -10,7 +10,7 @@ INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/libev)
 INCLUDE_DIRECTORIES("/usr/include/node")
 
 ADD_LIBRARY(snmp_binding MODULE
-	snmp_binding.cc
+	src/snmp_binding.cc
 	)
 
 IF(NOT DEFINED CONF_SYNC)
