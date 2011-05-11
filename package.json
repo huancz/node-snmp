@@ -1,0 +1,21 @@
+{ "name": "snmp",
+  "version": "0.1.0",
+  "description": "SNMP client library",
+  "keywords" : ["snmp"],
+  "homepage": "https://github.com/huancz/node-snmp",
+  "repository" : {
+    "type" : "git",
+    "url" : "git://github.com/huancz/node-snmp.git"
+  },
+  "author" : "Petr Běhan <root@bioservis.net>",
+  "main" : "./lib",
+  "scripts" : {
+    "install" : "ln -s build/default/snmp_binding.node . && node-waf configure build"
+  },
+  "licenses" : [
+  {
+    "type" : "MIT"
+  }
+  ],
+  "engines" : { "node": ">= 0.4.0" }
+}
