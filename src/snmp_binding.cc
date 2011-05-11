@@ -9,8 +9,8 @@
 extern "C" {
 
 // #include <net-snmp/mib_api.h>
-// we can't include mib_api.h for this function, collision with node namespace,
-// use extern.
+// we  can't include  mib_api.h  where  this function  is  declared, it  causes
+// collision with node namespace.
 int read_objid(const char *, oid *, size_t *);
 
 oid* snmp_parse_oid(const char * argv,
@@ -18,7 +18,7 @@ oid* snmp_parse_oid(const char * argv,
     size_t * rootlen
     );
 
-}
+} // extern "C"
 
 #include <node.h>
 #include <node_events.h>
@@ -75,9 +75,9 @@ using namespace v8;
 
 #endif // MODULE_EXPORTS_DOC
 
-// ==== cSnmpSessionManager {{{
+// ==== SnmpSessionManager {{{
 
-class cSnmpSessionManager {
+class SnmpSessionManager {
   public:
     struct storage_el {
       void* snmpHandle_;
@@ -89,22 +89,22 @@ class cSnmpSessionManager {
 
     struct ex_prepare {
       ev_prepare watcher_;
-      cSnmpSessionManager* selfPtr_;
+      SnmpSessionManager* selfPtr_;
     };
     struct ex_check {
       ev_check watcher_;
-      cSnmpSessionManager* selfPtr_;
+      SnmpSessionManager* selfPtr_;
     };
     struct ex_timeout {
       bool active_;
       ev_timer watcher_;
-      cSnmpSessionManager* selfPtr_;
+      SnmpSessionManager* selfPtr_;
 
       ex_timeout() : active_(false), selfPtr_(NULL) {}
     };
 
   private:
-    static cSnmpSessionManager* defaultInst_;
+    static SnmpSessionManager* defaultInst_;
 
     storage_type storage_;
     ex_prepare prepare_;
@@ -114,7 +114,7 @@ class cSnmpSessionManager {
     struct ev_loop* loop_;
 #endif
 
-    cSnmpSessionManager() {
+    SnmpSessionManager() {
       prepare_.selfPtr_ = this;
       check_.selfPtr_ = this;
       timeout_.selfPtr_ = this;
@@ -123,14 +123,14 @@ class cSnmpSessionManager {
 #endif
     }
 
-    cSnmpSessionManager(const cSnmpSessionManager&);
-    cSnmpSessionManager& operator==(const cSnmpSessionManager&);
+    SnmpSessionManager(const SnmpSessionManager&);
+    SnmpSessionManager& operator==(const SnmpSessionManager&);
 
     void prepare_cb_impl(EV_P);
     void check_cb_impl(EV_P);
 
   public:
-    ~cSnmpSessionManager() {
+    ~SnmpSessionManager() {
       assert(storage_.empty());
     }
 
@@ -141,17 +141,17 @@ class cSnmpSessionManager {
     static void check_cb(EV_P_ ev_check* w, int revents);
     static void timeout_cb(EV_P_ ev_timer* w, int revents);
 
-    static cSnmpSessionManager* default_inst();
+    static SnmpSessionManager* default_inst();
 
     // call with ev_loop_new result
-    static cSnmpSessionManager* create(EV_P);
+    static SnmpSessionManager* create(EV_P);
 };
 
-cSnmpSessionManager* cSnmpSessionManager::defaultInst_ = NULL;
+SnmpSessionManager* SnmpSessionManager::defaultInst_ = NULL;
 
-cSnmpSessionManager* cSnmpSessionManager::default_inst() {
+SnmpSessionManager* SnmpSessionManager::default_inst() {
   if (!defaultInst_) {
-    defaultInst_ = new cSnmpSessionManager();
+    defaultInst_ = new SnmpSessionManager();
 #if EV_MULTIPLICITY
     defaultInst_->loop_ = ev_default_loop(0); // EV_DEFAULT;
 #endif
@@ -159,21 +159,21 @@ cSnmpSessionManager* cSnmpSessionManager::default_inst() {
   return defaultInst_;
 }
 
-cSnmpSessionManager* cSnmpSessionManager::create(EV_P) {
-  cSnmpSessionManager* result = new cSnmpSessionManager();
+SnmpSessionManager* SnmpSessionManager::create(EV_P) {
+  SnmpSessionManager* result = new SnmpSessionManager();
 #if EV_MULTIPLICITY
   result->loop_ = loop;
 #endif
   return result;
 }
 
-void cSnmpSessionManager::timeout_cb(
+void SnmpSessionManager::timeout_cb(
     EV_P_  ev_timer* w, int revents)
 {
   assert(false && "timeout callback shouldn't have been called directly!");
 }
 
-void cSnmpSessionManager::prepare_cb(
+void SnmpSessionManager::prepare_cb(
     EV_P_  ev_prepare* w, int revents)
 {
   ex_prepare* data = reinterpret_cast<ex_prepare*>(w);
@@ -181,7 +181,7 @@ void cSnmpSessionManager::prepare_cb(
   data->selfPtr_->prepare_cb_impl(EV_A);
 }
 
-void cSnmpSessionManager::prepare_cb_impl(EV_P) {
+void SnmpSessionManager::prepare_cb_impl(EV_P) {
   assert(!this->storage_.empty());
 
 #ifndef NDEBUG
@@ -231,13 +231,13 @@ void cSnmpSessionManager::prepare_cb_impl(EV_P) {
     // fprintf(stderr, "block until %lf\n", next_timeout);
 #endif
     this->timeout_.active_ = true;
-    ev_timer_init(&this->timeout_.watcher_, &cSnmpSessionManager::timeout_cb,
+    ev_timer_init(&this->timeout_.watcher_, &SnmpSessionManager::timeout_cb,
         next_timeout, 0.0);
     ev_timer_start(EV_A_   &this->timeout_.watcher_);
   }
 }
 
-void cSnmpSessionManager::check_cb(
+void SnmpSessionManager::check_cb(
     EV_P_   ev_check* w, int revents)
 {
   ex_check* data = reinterpret_cast<ex_check*>(w);
@@ -245,7 +245,7 @@ void cSnmpSessionManager::check_cb(
   data->selfPtr_->check_cb_impl(EV_A);
 }
 
-void cSnmpSessionManager::check_cb_impl(EV_P) {
+void SnmpSessionManager::check_cb_impl(EV_P) {
   fd_set readSet;
   FD_ZERO(&readSet);
 
@@ -294,10 +294,10 @@ void cSnmpSessionManager::check_cb_impl(EV_P) {
   }
 }
 
-void cSnmpSessionManager::addClient(void* aSnmp) {
+void SnmpSessionManager::addClient(void* aSnmp) {
   if (storage_.empty()) {
-    ev_prepare_init(&this->prepare_.watcher_, cSnmpSessionManager::prepare_cb);
-    ev_check_init(&this->check_.watcher_, cSnmpSessionManager::check_cb);
+    ev_prepare_init(&this->prepare_.watcher_, SnmpSessionManager::prepare_cb);
+    ev_check_init(&this->check_.watcher_, SnmpSessionManager::check_cb);
 
 #if EV_MULTIPLICITY
     ev_prepare_start(this->loop_, &this->prepare_.watcher_);
@@ -319,13 +319,13 @@ struct handleFind {
     handleFind(void* aHandle)
       : handle_(aHandle)
     { }
-    bool operator()(cSnmpSessionManager::storage_el& aElement) {
+    bool operator()(SnmpSessionManager::storage_el& aElement) {
       return aElement.snmpHandle_ == handle_;
     }
 };
 }
 
-void cSnmpSessionManager::removeClient(void* aSnmp) {
+void SnmpSessionManager::removeClient(void* aSnmp) {
   storage_iterator it = std::find_if(storage_.begin(), storage_.end(),
       handleFind(aSnmp));
   assert(it != storage_.end());
@@ -340,15 +340,15 @@ void cSnmpSessionManager::removeClient(void* aSnmp) {
 
 enum { VT_NUMBER, VT_TEXT, VT_OID, VT_RAW, VT_NULL };
 
-// ===== class cSnmpValue {{{
-class cSnmpValue : public node::ObjectWrap {
+// ===== class SnmpValue {{{
+class SnmpValue : public node::ObjectWrap {
   private:
     static Persistent<v8::FunctionTemplate> constructorTemplate_;
 
     u_char type_;
     std::vector<unsigned char> data_;
 
-    cSnmpValue() {}
+    SnmpValue() {}
 
   public:
     static Handle<Value> GetType(const Arguments& args);
@@ -359,11 +359,11 @@ class cSnmpValue : public node::ObjectWrap {
     static void Initialize(Handle<Object> target);
 };
 
-Persistent<v8::FunctionTemplate> cSnmpValue::constructorTemplate_;
+Persistent<v8::FunctionTemplate> SnmpValue::constructorTemplate_;
 
-// Handle<Value> cSnmpValue::GetType(const Arguments& args) {{{
-Handle<Value> cSnmpValue::GetType(const Arguments& args) {
-  cSnmpValue* inst = ObjectWrap::Unwrap<cSnmpValue>(args.This());
+// Handle<Value> SnmpValue::GetType(const Arguments& args) {{{
+Handle<Value> SnmpValue::GetType(const Arguments& args) {
+  SnmpValue* inst = ObjectWrap::Unwrap<SnmpValue>(args.This());
 
   int kResult = VT_RAW;
   switch (inst->type_) {
@@ -405,11 +405,11 @@ Handle<Value> cSnmpValue::GetType(const Arguments& args) {
 }
 // }}}
 
-// Handle<Value> cSnmpValue::GetData(const Arguments& args) {{{
-Handle<Value> cSnmpValue::GetData(const Arguments& args) {
+// Handle<Value> SnmpValue::GetData(const Arguments& args) {{{
+Handle<Value> SnmpValue::GetData(const Arguments& args) {
   HandleScope kScope;
 
-  cSnmpValue* inst = ObjectWrap::Unwrap<cSnmpValue>(args.This());
+  SnmpValue* inst = ObjectWrap::Unwrap<SnmpValue>(args.This());
 
   netsnmp_vardata data; // union of pointers, it's enough to set one of
                         // them
@@ -517,11 +517,11 @@ Handle<Value> cSnmpValue::GetData(const Arguments& args) {
 }
 // }}}
 
-// Handle<Value> cSnmpValue::New(...) {{{
-Handle<Value> cSnmpValue::New(u_char type, void* data, std::size_t length) {
+// Handle<Value> SnmpValue::New(...) {{{
+Handle<Value> SnmpValue::New(u_char type, void* data, std::size_t length) {
   HandleScope kScope;
 
-  cSnmpValue* v = new cSnmpValue();
+  SnmpValue* v = new SnmpValue();
   v->type_ = type;
   v->data_.resize(length);
   memcpy(&v->data_[0], data, length);
@@ -537,35 +537,34 @@ Handle<Value> cSnmpValue::New(u_char type, void* data, std::size_t length) {
 #define SNMP_DEFINE_HIDDEN_CONSTANT(target, constant)                     \
   (target)->Set(v8::String::NewSymbol(#constant),                         \
                 v8::Integer::New(constant),                               \
-                static_cast<v8::PropertyAttribute>(v8::ReadOnly|v8::DontDelete|v8::DontEnum))
+                static_cast<v8::PropertyAttribute>(                       \
+                  v8::ReadOnly|v8::DontDelete|v8::DontEnum))
 
-// void cSnmpValue::Initialize(Handle<Object> target) {{{
-void cSnmpValue::Initialize(Handle<Object> target) {
+// void SnmpValue::Initialize(Handle<Object> target) {{{
+void SnmpValue::Initialize(Handle<Object> target) {
   js::HandleScope kScope;
 
   Local<FunctionTemplate> t = FunctionTemplate::New();
   constructorTemplate_ = Persistent<FunctionTemplate>::New(t);
   constructorTemplate_->InstanceTemplate()->SetInternalFieldCount(1);
-  constructorTemplate_->SetClassName(String::NewSymbol("cSnmpValue"));
+  constructorTemplate_->SetClassName(String::NewSymbol("Value"));
 
   // t->Inherit(EventEmitter::constructor_template);
 
-  NODE_SET_PROTOTYPE_METHOD(t, "GetType", cSnmpValue::GetType);
-  NODE_SET_PROTOTYPE_METHOD(t, "GetData", cSnmpValue::GetData);
+  NODE_SET_PROTOTYPE_METHOD(t, "GetType", SnmpValue::GetType);
+  NODE_SET_PROTOTYPE_METHOD(t, "GetData", SnmpValue::GetData);
 
-  target->Set(String::NewSymbol("cSnmpValue"),
+  target->Set(String::NewSymbol("Value"),
       constructorTemplate_->GetFunction());
 
-  // support x == cSnmpValue.VT_NUMBER
+  // support x == SnmpValue.VT_NUMBER
   SNMP_DEFINE_HIDDEN_CONSTANT(t, VT_NUMBER);
   SNMP_DEFINE_HIDDEN_CONSTANT(t, VT_TEXT);
   SNMP_DEFINE_HIDDEN_CONSTANT(t, VT_OID);
   SNMP_DEFINE_HIDDEN_CONSTANT(t, VT_RAW);
   SNMP_DEFINE_HIDDEN_CONSTANT(t, VT_NULL);
 
-  // support
-  // (v is of type cSnmpValue)
-  // v.VT_NUMBER
+  // support x == v.VT_NUMBER (v is of type Value)
   SNMP_DEFINE_HIDDEN_CONSTANT(t->InstanceTemplate(), VT_NUMBER);
   SNMP_DEFINE_HIDDEN_CONSTANT(t->InstanceTemplate(), VT_TEXT);
   SNMP_DEFINE_HIDDEN_CONSTANT(t->InstanceTemplate(), VT_OID);
@@ -650,53 +649,31 @@ v8::Handle<v8::Value> parse_oid_wrapper(const Arguments& args) {
 
 
 
-// ===== class cSnmpResult : public node::ObjectWrap {{{
-class cSnmpResult : public node::ObjectWrap {
-  private:
-    // static Persistent<v8::FunctionTemplate> constructorTemplate_;
-
-    // Persistent<Value> oid;
-    // Persistent<Value> value;
-
+// ===== class SnmpResult : public node::ObjectWrap {{{
+class SnmpResult : public node::ObjectWrap {
   public:
     static Local<Object> New(netsnmp_variable_list* var);
 
     static void Initialize(Handle<Object> target);
 };
 
-// Local<Object> cSnmpResult::New(netsnmp_variable_list* var) {{{
-Local<Object> cSnmpResult::New(netsnmp_variable_list* var) {
+// Local<Object> SnmpResult::New(netsnmp_variable_list* var) {{{
+Local<Object> SnmpResult::New(netsnmp_variable_list* var) {
   assert(var);
   HandleScope kScope;
 
   Local<Object> o = Object::New();
   o->Set(String::New("oid"),
-      cSnmpValue::New(ASN_OBJECT_ID,
+      SnmpValue::New(ASN_OBJECT_ID,
         var->name, var->name_length * sizeof(oid)));
   o->Set(String::New("value"),
-      cSnmpValue::New(var->type, var->val.string, var->val_len));
+      SnmpValue::New(var->type, var->val.string, var->val_len));
   return kScope.Close(o);
 }
 // }}}
 
-// void cSnmpResult::Initialize(Handle<Object> target) {{{
-void cSnmpResult::Initialize(Handle<Object> target) {
-  /*
-  js::HandleScope kScope;
-
-  Local<FunctionTemplate> t = FunctionTemplate::New(cSnmpResult::New);
-  constructorTemplate_ = Persistent<FunctionTemplate>::New(t);
-  constructorTemplate_->InstanceTemplate()->SetInternalFieldCount(1);
-  constructorTemplate_->SetClassName(String::NewSymbol("cSnmpSession"));
-
-  // t->Inherit(EventEmitter::constructor_template);
-
-  NODE_SET_PROTOTYPE_METHOD(t, "get", cSnmpSession::Get);
-  NODE_SET_PROTOTYPE_METHOD(t, "getNext", cSnmpSession::GetNext);
-
-  target->Set(String::NewSymbol("cSnmpSession"),
-      constructorTemplate_->GetFunction());
-      */
+// void SnmpResult::Initialize(Handle<Object> target) {{{
+void SnmpResult::Initialize(Handle<Object> target) {
 }
 // }}}
 
@@ -704,14 +681,14 @@ void cSnmpResult::Initialize(Handle<Object> target) {
 
 
 
-// ==== class cSnmpSession : public node::ObjectWrap {{{
+// ==== class SnmpSession : public node::ObjectWrap {{{
 
-class cSnmpSession : public node::ObjectWrap {
+class SnmpSession : public node::ObjectWrap {
   public:
     typedef Persistent<Function> callback_type;
 
     struct self_data {
-      cSnmpSession* selfPtr_;
+      SnmpSession* selfPtr_;
     };
 
     enum req_type {
@@ -735,15 +712,15 @@ class cSnmpSession : public node::ObjectWrap {
     std::string credentials_;
     queue_type queue_;
     void* sessionHandle_;
-    cSnmpSessionManager* manager_;
+    SnmpSessionManager* manager_;
     Persistent<Value> destructorInvoker_;
 
   private: // ctors
-    cSnmpSession() {
+    SnmpSession() {
       selfData_.selfPtr_ = this;
-      manager_ = cSnmpSessionManager::default_inst();
+      manager_ = SnmpSessionManager::default_inst();
 #ifdef ENABLE_DEBUG_PRINTS
-      fprintf(stdout, "cSnmpSession()\n");
+      fprintf(stdout, "SnmpSession()\n");
 #endif
     };
 
@@ -780,7 +757,7 @@ class cSnmpSession : public node::ObjectWrap {
      * version is inefficient by definition, it doesn't matter if we add little
      * more inefficiency and open another session to same host.
      */
-    cSnmpSession* Clone(cSnmpSessionManager* aManager);
+    SnmpSession* Clone(SnmpSessionManager* aManager);
 
   private: // static callback proxy
     static int snmp_cb(
@@ -800,15 +777,15 @@ class cSnmpSession : public node::ObjectWrap {
     static Handle<Value> GetNext(const Arguments& args);
     static Handle<Value> GetBulk(const Arguments& args);
 
-    static cSnmpSession* New(const std::string& hostName,
+    static SnmpSession* New(const std::string& hostName,
         const std::string& credentials);
 
     static void Destroy(Persistent<Value> v, void* param);
 
   public:
-    ~cSnmpSession() {
+    ~SnmpSession() {
 #ifdef ENABLE_DEBUG_PRINTS
-      fprintf(stdout, "~cSnmpSession()\n");
+      fprintf(stdout, "~SnmpSession()\n");
 #endif
       if (sessionHandle_) {
 #ifdef ENABLE_DEBUG_PRINTS
@@ -823,18 +800,18 @@ class cSnmpSession : public node::ObjectWrap {
     static void Initialize(Handle<Object> target);
 };
 
-Persistent<v8::FunctionTemplate> cSnmpSession::constructorTemplate_;
+Persistent<v8::FunctionTemplate> SnmpSession::constructorTemplate_;
 
-// cSnmpSession* cSnmpSession::Clone(cSnmpSessionManager* aManager) {{{
-cSnmpSession* cSnmpSession::Clone(cSnmpSessionManager* aManager) {
-  cSnmpSession* kResult = cSnmpSession::New(hostName_, credentials_);
+// SnmpSession* SnmpSession::Clone(SnmpSessionManager* aManager) {{{
+SnmpSession* SnmpSession::Clone(SnmpSessionManager* aManager) {
+  SnmpSession* kResult = SnmpSession::New(hostName_, credentials_);
   kResult->manager_ = aManager;
   return kResult;
 }
 // }}}
 
-// Handle<Value> cSnmpSession::PerformRequestImpl(...) {{{
-Handle<Value> cSnmpSession::PerformRequestImpl(
+// Handle<Value> SnmpSession::PerformRequestImpl(...) {{{
+Handle<Value> SnmpSession::PerformRequestImpl(
     req_type aType, netsnmp_pdu* pdu, callback_type aCallback)
 {
   HandleScope kScope;
@@ -855,8 +832,8 @@ Handle<Value> cSnmpSession::PerformRequestImpl(
 }
 // }}}
 
-// void cSnmpSession::snmp_success_cb(...) {{{
-void cSnmpSession::snmp_success_cb(
+// void SnmpSession::snmp_success_cb(...) {{{
+void SnmpSession::snmp_success_cb(
     struct snmp_pdu* pdu,
     const req_data& magic
     )
@@ -868,7 +845,7 @@ void cSnmpSession::snmp_success_cb(
   uint32_t index = 0;
 
   for(; var; var = var->next_variable, ++index) {
-    kResult->Set(index, cSnmpResult::New(var));
+    kResult->Set(index, SnmpResult::New(var));
   }
 
   Handle<Value> args[2];
@@ -887,8 +864,8 @@ void cSnmpSession::snmp_success_cb(
 }
 // }}}
 
-// void cSnmpSession::snmp_fail_cb(...) {{{
-void cSnmpSession::snmp_fail_cb(
+// void SnmpSession::snmp_fail_cb(...) {{{
+void SnmpSession::snmp_fail_cb(
         struct snmp_pdu* pdu,
         const req_data& magic,
         const char* reason
@@ -912,8 +889,8 @@ void cSnmpSession::snmp_fail_cb(
 }
 // }}}
 
-// int cSnmpSession::snmp_cb_proxy(...) {{{
-int cSnmpSession::snmp_cb_proxy(
+// int SnmpSession::snmp_cb_proxy(...) {{{
+int SnmpSession::snmp_cb_proxy(
     int operation,
     netsnmp_session* session,
     int reqid,
@@ -984,26 +961,26 @@ int cSnmpSession::snmp_cb_proxy(
 }
 // }}}
 
-// void cSnmpSession::snmp_cb(...) {{{
-int cSnmpSession::snmp_cb(
+// void SnmpSession::snmp_cb(...) {{{
+int SnmpSession::snmp_cb(
     int operation,
     netsnmp_session* session,
     int reqid,
     struct snmp_pdu* pdu,
     void* magic)
 {
-  cSnmpSession::self_data* instData =
-    reinterpret_cast<cSnmpSession::self_data*>(magic);
+  SnmpSession::self_data* instData =
+    reinterpret_cast<SnmpSession::self_data*>(magic);
   return instData->selfPtr_->snmp_cb_proxy(operation, session, reqid, pdu);
 }
 // }}}
 
 
-// cSnmpSession* cSnmpSession::New(hostname, community) {{{
-cSnmpSession* cSnmpSession::New(const std::string& hostName,
+// SnmpSession* SnmpSession::New(hostname, community) {{{
+SnmpSession* SnmpSession::New(const std::string& hostName,
     const std::string& credentials)
 {
-  cSnmpSession* kResult = new cSnmpSession();
+  SnmpSession* kResult = new SnmpSession();
   kResult->hostName_ = hostName;
   kResult->credentials_ = credentials;
 
@@ -1018,14 +995,14 @@ cSnmpSession* cSnmpSession::New(const std::string& hostName,
       kResult->credentials_.size() + 1);
   kSession.community_len = kResult->credentials_.size();
 
-  kSession.callback = cSnmpSession::snmp_cb;
+  kSession.callback = SnmpSession::snmp_cb;
   kSession.callback_magic = &kResult->selfData_;
 
   kResult->sessionHandle_ = snmp_sess_open(&kSession);
 #ifdef ENABLE_DEBUG_PRINTS
   fprintf(stderr, "new session handle %p\n", kResult->sessionHandle_);
 #endif
-  kResult->manager_ = cSnmpSessionManager::default_inst();
+  kResult->manager_ = SnmpSessionManager::default_inst();
   free(kSession.community);
   free(kSession.peername);
 
@@ -1037,10 +1014,10 @@ cSnmpSession* cSnmpSession::New(const std::string& hostName,
 }
 // }}}
 
-// Handle<Value> cSnmpSession::New(const Arguments& args) {{{
-Handle<Value> cSnmpSession::New(const Arguments& args) {
+// Handle<Value> SnmpSession::New(const Arguments& args) {{{
+Handle<Value> SnmpSession::New(const Arguments& args) {
   HandleScope kScope;
-  std::auto_ptr<cSnmpSession> kInst;
+  std::auto_ptr<SnmpSession> kInst;
 
   if (args.Length() < 2 || !args[0]->IsString() || !args[1]->IsString()) {
     return kScope.Close(v8::ThrowException(
@@ -1051,7 +1028,7 @@ Handle<Value> cSnmpSession::New(const Arguments& args) {
   {
     v8::String::Utf8Value hostname(args[0]->ToString());
     v8::String::Utf8Value credentials(args[1]->ToString());
-    kInst.reset(cSnmpSession::New(
+    kInst.reset(SnmpSession::New(
         std::string(*hostname, hostname.length()),
         std::string(*credentials, credentials.length())
         ));
@@ -1065,16 +1042,16 @@ Handle<Value> cSnmpSession::New(const Arguments& args) {
   kInst->Wrap(args.This());
   /* Persistent<Object> p = */
   kInst->destructorInvoker_ = Persistent<Object>::New(args.This());
-  kInst->destructorInvoker_.MakeWeak(NULL, cSnmpSession::Destroy);
+  kInst->destructorInvoker_.MakeWeak(NULL, SnmpSession::Destroy);
   kInst.release();
   return kScope.Close(args.This());
 }
 // }}}
 
-// void cSnmpSession::Destroy(Persistent<Value> v, void* param) {{{
-void cSnmpSession::Destroy(Persistent<Value> v, void* param) {
+// void SnmpSession::Destroy(Persistent<Value> v, void* param) {{{
+void SnmpSession::Destroy(Persistent<Value> v, void* param) {
   assert(v->IsObject());
-  cSnmpSession* s = ObjectWrap::Unwrap<cSnmpSession>(v->ToObject());
+  SnmpSession* s = ObjectWrap::Unwrap<SnmpSession>(v->ToObject());
 #ifdef ENABLE_DEBUG_PRINTS
   // fprintf(stderr, "destroy persistent for %p\n", s);
 #endif
@@ -1119,12 +1096,12 @@ void addNullVarFromV8Array(netsnmp_pdu* pdu, Local<Value> var,
 // }}}
 }
 
-// Handle<Value> cSnmpSession::PerformRequest(...) {{{
-Handle<Value> cSnmpSession::PerformRequest(
+// Handle<Value> SnmpSession::PerformRequest(...) {{{
+Handle<Value> SnmpSession::PerformRequest(
     req_type aType, const Arguments& args)
 {
   HandleScope kScope;
-  cSnmpSession* inst = ObjectWrap::Unwrap<cSnmpSession>(args.This());
+  SnmpSession* inst = ObjectWrap::Unwrap<SnmpSession>(args.This());
 
   // call with (OID, callback, bool (=sync or not sync))
   if (args.Length() < 3) {
@@ -1183,8 +1160,8 @@ Handle<Value> cSnmpSession::PerformRequest(
   if (args[2]->BooleanValue()) {
 #if EV_MULTIPLICITY
     struct ev_loop* our_loop = ev_loop_new(0);
-    cSnmpSessionManager* manager = cSnmpSessionManager::create(our_loop);
-    cSnmpSession* cloned_sess = inst->Clone(manager);
+    SnmpSessionManager* manager = SnmpSessionManager::create(our_loop);
+    SnmpSession* cloned_sess = inst->Clone(manager);
 
     cloned_sess->PerformRequestImpl(aType, pdu,
         Persistent<Function>(Function::Cast(*args[1])));
@@ -1208,40 +1185,40 @@ Handle<Value> cSnmpSession::PerformRequest(
 }
 // }}}
 
-// Handle<Value> cSnmpSession::Get(const Arguments& args) {{{
-Handle<Value> cSnmpSession::Get(const Arguments& args) {
+// Handle<Value> SnmpSession::Get(const Arguments& args) {{{
+Handle<Value> SnmpSession::Get(const Arguments& args) {
   return PerformRequest(REQ_GET, args);
 }
 // }}}
 
-// Handle<Value> cSnmpSession::GetNext(const Arguments& args) {{{
-Handle<Value> cSnmpSession::GetNext(const Arguments& args) {
+// Handle<Value> SnmpSession::GetNext(const Arguments& args) {{{
+Handle<Value> SnmpSession::GetNext(const Arguments& args) {
   return PerformRequest(REQ_NEXT, args);
 }
 // }}}
 
-// Handle<Value> cSnmpSession::GetBulk(const Arguments& args) {{{
-Handle<Value> cSnmpSession::GetBulk(const Arguments& args) {
+// Handle<Value> SnmpSession::GetBulk(const Arguments& args) {{{
+Handle<Value> SnmpSession::GetBulk(const Arguments& args) {
   return PerformRequest(REQ_BULK, args);
 }
 // }}}
 
 
-// void cSnmpSession::Initialize(Handle<Object> target) {{{
-void cSnmpSession::Initialize(Handle<Object> target) {
+// void SnmpSession::Initialize(Handle<Object> target) {{{
+void SnmpSession::Initialize(Handle<Object> target) {
   js::HandleScope kScope;
 
-  Local<FunctionTemplate> t = FunctionTemplate::New(cSnmpSession::New);
+  Local<FunctionTemplate> t = FunctionTemplate::New(SnmpSession::New);
   constructorTemplate_ = Persistent<FunctionTemplate>::New(t);
   constructorTemplate_->InstanceTemplate()->SetInternalFieldCount(1);
-  constructorTemplate_->SetClassName(String::NewSymbol("cSnmpSession"));
+  constructorTemplate_->SetClassName(String::NewSymbol("Connection"));
 
   // t->Inherit(EventEmitter::constructor_template);
 
-  NODE_SET_PROTOTYPE_METHOD(t, "get", cSnmpSession::Get);
-  NODE_SET_PROTOTYPE_METHOD(t, "getNext", cSnmpSession::GetNext);
+  NODE_SET_PROTOTYPE_METHOD(t, "Get", SnmpSession::Get);
+  NODE_SET_PROTOTYPE_METHOD(t, "GetNext", SnmpSession::GetNext);
 
-  target->Set(String::NewSymbol("cSnmpSession"),
+  target->Set(String::NewSymbol("Connection"),
       constructorTemplate_->GetFunction());
 }
 // }}}
@@ -1255,9 +1232,9 @@ init (Handle<Object> target) {
 
   init_snmp("asdf");
 
-  cSnmpSession::Initialize(target);
-  cSnmpValue::Initialize(target);
-  cSnmpResult::Initialize(target);
+  SnmpSession::Initialize(target);
+  SnmpValue::Initialize(target);
+  SnmpResult::Initialize(target);
 
   NODE_SET_METHOD(target, "read_objid", read_objid_wrapper);
   NODE_SET_METHOD(target, "parse_oid", parse_oid_wrapper);

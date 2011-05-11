@@ -11,15 +11,15 @@ function interpret_oid(aOid) {
     return binding.parse_oid(aOid);
   } else if (aOid instanceof Array) {
     return aOid;
-  } else if (aOid instanceof binding.cSnmpValue) {
-    return aOid.asArray();
+  } else if (aOid instanceof binding.Value) {
+    return aOid.toArray();
   } else {
     assert.ok(false, "unsupported aOid data type " + typeof(aOid) + ":" + util.inspect(aOid));
   }
 }
 
-// binding.cSnmpValue.prototype.asString = function() {{{
-binding.cSnmpValue.prototype.asString = function() {
+// binding.Value.prototype.asString = function() {{{
+binding.Value.prototype.toString = function toString() {
   var v = this.GetData();
 
   if (v instanceof Buffer) {
@@ -56,8 +56,8 @@ binding.cSnmpValue.prototype.asString = function() {
 }
 // }}}
 
-// binding.cSnmpValue.prototype.asArray = function() {{{
-binding.cSnmpValue.prototype.asArray = function() {
+// binding.Value.prototype.toArray = function() {{{
+binding.Value.prototype.toArray = function() {
   var v = this.GetData();
 
   if (v instanceof Buffer) {
@@ -78,15 +78,10 @@ binding.cSnmpValue.prototype.asArray = function() {
 }
 // }}}
 
-binding.cSnmpValue.prototype.toString = binding.cSnmpValue.prototype.asString;
-
 // function oid_compare_base(aLeft, aRight) {{{
 function oid_compare_base(aLeft, aRight) {
   var left = interpret_oid(aLeft);
   var right = interpret_oid(aRight);
-
-  // console.log("compare base - L: ", left);
-  // console.log("compare base - R: ", right);
 
   var end = Math.min(left.length, right.length);
   var i;
@@ -143,20 +138,16 @@ var ERR_OTHER = 0;
 var ERR_EOF   = 1;
 var ERR_CYCLE = 2;
 
-var cSnmpError = function(aMessage, aCode) {
+var Error = function(aMessage, aCode) {
   this.message_ = aMessage;
   this.code_ = aCode || ERR_OTHER;
 }
 
-cSnmpError.prototype.toString = function() {
+Error.prototype.toString = function() {
   return this.message_.toString();
 }
 
-cSnmpError.prototype.getMessage = function() {
-  return this.message_;
-}
-
-cSnmpError.prototype.isEof = function() {
+Error.prototype.isEof = function() {
   return this.code_ == ERR_EOF;
 }
 
@@ -166,14 +157,14 @@ cSnmpError.prototype.isEof = function() {
 
 
 
-var conn = exports.cSnmpConnection = function cSnmpConnection(aHost, aCredentials) {
-  this.worker_ = new (binding.cSnmpSession)(aHost, aCredentials);
+var conn = exports.Connection = function Connection(aHost, aCredentials) {
+  this.worker_ = new (binding.Connection)(aHost, aCredentials);
 }
 
-conn.prototype.get = function(aOid, aCallback) {
+conn.prototype.Get = function(aOid, aCallback) {
   var oid = interpret_oid(aOid);
   if (aCallback) {
-    return this.worker_.get(oid, aCallback, false);
+    return this.worker_.Get(oid, aCallback, false);
   } else {
     var result_err;
     var result_val;
@@ -183,10 +174,10 @@ conn.prototype.get = function(aOid, aCallback) {
       result_val = aData;
     }
 
-    this.worker_.get(oid, callback, true);
+    this.worker_.Get(oid, callback, true);
 
     if (result_err) {
-      this.lastError = new cSnmpError(result_err);
+      this.lastError = new Error(result_err);
       this.lastResult = null;
       return false;
     } else {
@@ -212,8 +203,8 @@ conn.prototype.get = function(aOid, aCallback) {
  * Data is passed as  array of objects - we could  support multi-oid queries in
  * future. Each member of the array will have 'oid' and 'value' properties.
  */
-// conn.prototype.getNext = function(aOid, aCallback) {{{
-conn.prototype.getNext = function(aOid, aCallback) {
+// conn.prototype.GetNext = function(aOid, aCallback) {{{
+conn.prototype.GetNext = function(aOid, aCallback) {
   if (aCallback) {
     assert.ok(aCallback instanceof Function,
         "callback must be a function");
@@ -236,12 +227,12 @@ conn.prototype.getNext = function(aOid, aCallback) {
     if (aError) {
       sync_err = true;
       that.lastResult = null;
-      that.lastError = new cSnmpError(aError);
+      that.lastError = new Error(aError);
       return;
     }
     if (!verifyNextResult(oid, aData[0].oid)) {
       that.lastResult = null;
-      that.lastError = new cSnmpError("broken peer implementation", ERR_CYCLE, null);
+      that.lastError = new Error("broken peer implementation", ERR_CYCLE, null);
       return;
     }
     that.lastResult = aData;
@@ -250,12 +241,12 @@ conn.prototype.getNext = function(aOid, aCallback) {
 
   function async_callback(aError, aData) {
     if (aError) {
-      aCallback(new cSnmpError(aError), null);
+      aCallback(new Error(aError), null);
       return;
     }
     // XXX: this won't work for multi-oid queries
     if (!verifyNextResult(oid, aData[0].oid)) {
-      aCallback(new cSnmpError("broken peer implementation", ERR_CYCLE), null);
+      aCallback(new Error("broken peer implementation", ERR_CYCLE), null);
       console.log([oid, aData[0].oid]);
       return;
     }
@@ -263,16 +254,16 @@ conn.prototype.getNext = function(aOid, aCallback) {
   }
 
   if (aCallback) {
-    return this.worker_.getNext(oid, async_callback, false);
+    return this.worker_.GetNext(oid, async_callback, false);
   } else {
-    this.worker_.getNext(oid, sync_callback, true);
+    this.worker_.GetNext(oid, sync_callback, true);
     return !this.lastError;
   }
 }
 // }}}
 
 /**
- * Wrapper for getNext, restricted to subtree queries.
+ * Wrapper for GetNext, restricted to subtree queries.
  */
 // conn.prototype.getNextSubtree = function(aOid, aBase, aCallback) {{{
 conn.prototype.getNextSubtree = function(aOid, aBase, aCallback) {
@@ -283,24 +274,24 @@ conn.prototype.getNextSubtree = function(aOid, aBase, aCallback) {
 
   function async_callback(aError, aData) {
     if (aError) {
-      aCallback(new cSnmpError(aError), aData);
+      aCallback(new Error(aError), aData);
       return;
     }
     if (oid_compare_base(aData[0].oid, base) != 0) {
-      aCallback(new cSnmpError("end of subtree", ERR_EOF), null);
+      aCallback(new Error("end of subtree", ERR_EOF), null);
     } else {
       aCallback(null, aData);
     }
   }
 
   if (aCallback) {
-    return this.getNext(aOid, async_callback);
+    return this.GetNext(aOid, async_callback);
   } else {
-    if (!this.getNext(base)) {
+    if (!this.GetNext(base)) {
       return false;
     }
     if (oid_compare_base(this.lastResult[0].oid, base) != 0) {
-      this.lastError = new cSnmpError("end of subtree", ERR_EOF);
+      this.lastError = new Error("end of subtree", ERR_EOF);
       return false;
     }
     return true;
@@ -308,8 +299,8 @@ conn.prototype.getNextSubtree = function(aOid, aBase, aCallback) {
 }
 // }}}
 
-// conn.prototype.getCompleteSubtree = function(aOid, aCallback) {{{
-conn.prototype.getCompleteSubtree = function(aOid, aCallback) {
+// conn.prototype.GetSubtree = function(aOid, aCallback) {{{
+conn.prototype.GetSubtree = function(aOid, aCallback) {
   // TODO: great opportunity for GET_BULK. IF we support v2 protocol, and the
   // connection is v2...
 
