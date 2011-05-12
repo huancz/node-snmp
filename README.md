@@ -51,10 +51,10 @@ type Value:
         ]
 
 ### Value - no public constructor
-*   asArray, toString - return some  aproximation of contained data, similar to
+*   toArray, toString - return some  aproximation of contained data, similar to
     what snmpwalk does
-*   GetData -  return raw data  in several possible  formats - see  asArray for
-    details
+*   GetData  - return  raw  data  in several  possible  formats  - see  toArray
+    implementation for details
 *   GetType -  one of  SnmpValue.[VT_NUMBER, VT_TEXT, VT_OID,  VT_RAW, VT_NULL]
     Remnant of early design, probably useless, could be removed in the future
 
@@ -64,8 +64,8 @@ type Value:
 
 ### Connection(host, community)
 *   Get, GetNext - map directly to  corresponding SNMP operations, take OID (in
-    any format) or  array of OIDs (only array of  integers format) and callback
-    as arguments
+    any  format) or  array of  OIDs (only  as array  of integers)  and callback
+    arguments
 *   GetSubtree - use getNext to walk whole subtree of starting OID
 
 ### free functions in exports:
