@@ -24,7 +24,7 @@ Build
 2.  copy  snmp.js and  build/default/snmp_binding.node somewhere where  node can
     find them:
     *   ~/.node_libraries
-    *   <your_project>/node_modules/snmp (copy package.json too when using this
+    *   \<your_project_root\>/node_modules/snmp (copy package.json too when using this
         variant)
 
 See http://nodejs.org/docs/v0.4.7/api/modules.html for details.
