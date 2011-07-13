@@ -8,7 +8,7 @@
     "url" : "git://github.com/huancz/node-snmp.git"
   },
   "author" : "Petr Běhan <root@bioservis.net>",
-  "main" : "./lib",
+  "main" : "snmp.js",
   "scripts" : {
     "install" : "ln -s build/default/snmp_binding.node . && node-waf configure build"
   },
