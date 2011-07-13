@@ -24,7 +24,7 @@ Build
 2.  copy  snmp.js and  build/default/snmp_binding.node somewhere where  node can
     find them:
     *   ~/.node_libraries
-    *   \<your_project_root\>/node_modules/snmp (copy package.json too when using this
+    *   \<your_project_root\>/node\_modules/snmp (copy package.json too when using this
         variant)
 
 See http://nodejs.org/docs/v0.4.7/api/modules.html for details.
@@ -32,6 +32,16 @@ See http://nodejs.org/docs/v0.4.7/api/modules.html for details.
 Eventually, "npm install -g"  should do the trick too, but I  can't seem to get
 it to work right now.
 
+Build .deb package
+------------------
+
+    $ # git clone <url>
+    $ git branch debian origin/debian
+    $ git-buildpackage --git-upstream-branch=master --git-debian-branch=debian --git-force-create -us -uc
+
+At present, you need nodejs-dev package from debian/sid repository to build.
+git-buildpackage is optional, debian has several options, but I found this
+to be the easiest way.
 
 API
 ---
