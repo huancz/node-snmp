@@ -1,6 +1,6 @@
 Format: http://dep.debian.net/deps/dep5
 Upstream-Name: node-snmp
-Source: <url://example.com>
+Source: https://github.com/huancz/node-snmp
 
 Files: *
 Copyright: 2011 Petr Běhan <behanp@bluepartners.cz>

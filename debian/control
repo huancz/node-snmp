@@ -7,7 +7,7 @@ Standards-Version: 3.9.1
 Homepage: https://github.com/huancz/node-snmp
 
 Package: node-snmp
-Architecture: all
+Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, nodejs, libsnmp15
 Description: node binding for net-snmp library
  Issue GET/GETNEXT queries from your nodejs scripts.
