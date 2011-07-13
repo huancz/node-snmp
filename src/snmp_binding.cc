@@ -1166,7 +1166,11 @@ Handle<Value> SnmpSession::PerformRequest(
     cloned_sess->PerformRequestImpl(aType, pdu,
         Persistent<Function>(Function::Cast(*args[1])));
 
+#if EV_VERSION_MAJOR == 3
+    ev_loop(our_loop, 0);
+#else
     ev_run(our_loop);
+#endif
 
     delete cloned_sess;
     delete manager;
