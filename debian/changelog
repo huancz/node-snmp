@@ -1,0 +1,5 @@
+node-snmp (1.0.0-1) unstable; urgency=low
+
+  * Initial release
+
+ -- Petr Běhan <behanp@bluepartners.cz>  Tue, 12 Jul 2011 23:58:10 +0200
