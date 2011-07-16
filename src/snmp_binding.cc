@@ -84,7 +84,7 @@ class SnmpSessionManager {
       ev_io io_watcher_;
     };
 
-    typedef std::list<storage_el> storage_type;
+    typedef std::vector<storage_el> storage_type;
     typedef storage_type::iterator storage_iterator;
 
     struct ex_prepare {
@@ -307,7 +307,7 @@ void SnmpSessionManager::addClient(void* aSnmp) {
     ev_check_start(&this->check_.watcher_);
 #endif
   }
-  storage_.push_front((storage_el){ aSnmp });
+  storage_.push_back((storage_el){ aSnmp });
 }
 
 namespace {

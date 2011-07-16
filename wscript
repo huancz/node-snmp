@@ -23,5 +23,7 @@ def build(bld):
   obj = bld.new_task_gen('cxx', 'shlib', 'node_addon')
   obj.target = 'snmp_binding'
   obj.source = './src/snmp_binding.cc'
+  obj.CXXFLAGS = [ '-fno-rtti', '-fno-exceptions' ]
+  obj.LDFLAGS = [ '-Wl,--as-needed' ]
   obj.lib = ['snmp']
 
