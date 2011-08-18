@@ -1,6 +1,14 @@
+node-snmp (1.0.0-4) unstable; urgency=low
+
+  * revert change in 1.0.0-3, it breaks cSnmpSession manager when javascript
+    callback adds new snmp requests to the queue (vector reallocates and
+    invalidates iterators, list iterators remain valid)
+
+ -- Petr Běhan <behanp@bluepartners.cz>  Tue, 12 Jul 2011 23:58:10 +0200
+
 node-snmp (1.0.0-3) unstable; urgency=low
 
-  * Packagege works on older debian versions
+  * Package works on older debian versions
 
  -- Petr Běhan <behanp@bluepartners.cz>  Tue, 12 Jul 2011 23:58:10 +0200
 

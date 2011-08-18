@@ -6,6 +6,9 @@
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/pdu_api.h>
 
+#define ENABLE_DEBUG_PRINTS 1
+
+
 extern "C" {
 
 // #include <net-snmp/mib_api.h>
@@ -84,7 +87,7 @@ class SnmpSessionManager {
       ev_io io_watcher_;
     };
 
-    typedef std::vector<storage_el> storage_type;
+    typedef std::list<storage_el> storage_type;
     typedef storage_type::iterator storage_iterator;
 
     struct ex_prepare {
@@ -205,6 +208,9 @@ void SnmpSessionManager::prepare_cb_impl(EV_P) {
     }
     int retval = snmp_sess_select_info(it->snmpHandle_, &nfds, &readSet,
         &timeout, &block);
+#ifdef ENABLE_DEBUG_PRINTS
+    // fprintf(stderr, "snmp_sess_select_info: %x -> %d\n", readSet, nfds - 1);
+#endif
 
 #ifndef NDEBUG
     // validity of asumptions used here is NOT guaranteed by net-snmp. It could
@@ -221,6 +227,10 @@ void SnmpSessionManager::prepare_cb_impl(EV_P) {
     ev_io_set(&it->io_watcher_, nfds - 1, EV_READ);
     ev_io_start(EV_A_   &it->io_watcher_);
 
+#ifdef ENABLE_DEBUG_PRINTS
+    fprintf(stderr, "prepare: listen for read event on fd %d\n", it->io_watcher_.fd);
+#endif
+
     nfds = 0;
   }
   if (!block) {
@@ -228,7 +238,7 @@ void SnmpSessionManager::prepare_cb_impl(EV_P) {
     next_timeout /= 1000000;
     next_timeout += timeout.tv_sec;
 #ifdef ENABLE_DEBUG_PRINTS
-    // fprintf(stderr, "block until %lf\n", next_timeout);
+    fprintf(stderr, "block until %lf\n", next_timeout);
 #endif
     this->timeout_.active_ = true;
     ev_timer_init(&this->timeout_.watcher_, &SnmpSessionManager::timeout_cb,
@@ -273,7 +283,7 @@ void SnmpSessionManager::check_cb_impl(EV_P) {
     int revents = ev_clear_pending(EV_A_ &it->io_watcher_);
     if ((revents & READ) == READ) {
 #ifdef ENABLE_DEBUG_PRINTS
-      // fprintf(stderr, "read on fd %d\n", it->io_watcher_.fd);
+      fprintf(stderr, "read on fd %d\n", it->io_watcher_.fd);
 #endif
       FD_SET(it->io_watcher_.fd, &readSet);
       snmp_sess_read(it->snmpHandle_, &readSet);
@@ -307,7 +317,7 @@ void SnmpSessionManager::addClient(void* aSnmp) {
     ev_check_start(&this->check_.watcher_);
 #endif
   }
-  storage_.push_back((storage_el){ aSnmp });
+  storage_.push_front((storage_el){ aSnmp });
 }
 
 namespace {
@@ -1053,7 +1063,7 @@ void SnmpSession::Destroy(Persistent<Value> v, void* param) {
   assert(v->IsObject());
   SnmpSession* s = ObjectWrap::Unwrap<SnmpSession>(v->ToObject());
 #ifdef ENABLE_DEBUG_PRINTS
-  // fprintf(stderr, "destroy persistent for %p\n", s);
+  fprintf(stderr, "destroy persistent for %p\n", s);
 #endif
   delete s;
   v.Dispose();
