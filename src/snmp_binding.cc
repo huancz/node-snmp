@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#include <ev.h>
+#include <uv-private/ev.h>
 
 #include <net-snmp/net-snmp-config.h>
 #include <net-snmp/pdu_api.h>
@@ -21,7 +21,6 @@ oid* snmp_parse_oid(const char * argv,
 } // extern "C"
 
 #include <node.h>
-#include <node_events.h>
 #include <node_buffer.h>
 #include <sys/types.h>
 #include <sys/time.h>
