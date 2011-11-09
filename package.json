@@ -10,7 +10,7 @@
   "author" : "Petr Běhan <root@bioservis.net>",
   "main" : "snmp.js",
   "scripts" : {
-    "install" : "ln -s build/default/snmp_binding.node . && node-waf configure build"
+    "install" : "ln -s build/Release/snmp_binding.node . && node-waf configure build"
   },
   "licenses" : [
   {
