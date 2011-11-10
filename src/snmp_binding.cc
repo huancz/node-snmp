@@ -20,7 +20,6 @@ oid* snmp_parse_oid(const char * argv,
 
 } // extern "C"
 
-#include <node.h>
 #include <node_buffer.h>
 #include <sys/types.h>
 #include <sys/time.h>
